@@ -1,0 +1,709 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0f1a12">
+<title>僵尸斗蛐蛐</title>
+<style>
+  :root{
+    --bg:#0f1a12; --card:#16241a; --card2:#1c2e21; --line:#2a4231;
+    --text:#e8f2e9; --muted:#9db3a3; --gold:#ffd166;
+    /* 僵尸队伍的标识色：灰偏绿 */
+    --left:#b06ef0; --right:#7e9465;
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  html,body{margin:0;padding:0}
+  body{
+    min-height:100dvh;
+    background:radial-gradient(1200px 800px at 50% -10%, #1d3a25 0%, #0f1a12 62%) fixed;
+    color:var(--text);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;
+    padding:14px 12px calc(28px + env(safe-area-inset-bottom));
+  }
+  header{max-width:1040px;margin:0 auto 14px;text-align:center}
+  h1{font-size:22px;margin:0 0 4px;letter-spacing:.5px}
+  header p{margin:0;color:var(--muted);font-size:12.5px}
+
+  main{
+    max-width:1040px;margin:0 auto;
+    display:grid;grid-template-columns:1fr 1fr;gap:14px;align-items:start;
+  }
+  .panel{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:12px;min-width:0}
+  .panel.left{border-top:3px solid var(--left)}
+  .panel.right{border-top:3px solid var(--right)}
+  .panel-head{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:10px}
+  .panel-head h2{font-size:16px;margin:0;display:flex;align-items:center;gap:8px}
+  .dot{width:10px;height:10px;border-radius:50%;display:inline-block}
+  .left .dot{background:var(--left)}
+  .right .dot{background:var(--right)}
+  .plus{
+    width:40px;height:40px;flex:0 0 40px;border-radius:12px;border:1px solid var(--line);
+    background:var(--card2);color:var(--text);font-size:22px;line-height:1;cursor:pointer;
+  }
+  .plus:active{transform:scale(.95)}
+  .rows{display:flex;flex-direction:column;gap:8px}
+  .row{display:flex;gap:8px;align-items:center}
+  .row select{flex:1 1 auto;min-width:0}
+  .row select,.row input{
+    height:44px;border-radius:10px;border:1px solid var(--line);
+    background:#0d1811;color:var(--text);padding:0 10px;font:inherit;font-size:15px;
+  }
+  .row input{width:80px;flex:0 0 80px;text-align:center}
+  .del{
+    width:44px;height:44px;flex:0 0 44px;border-radius:10px;border:1px solid #3a2026;
+    background:#241316;color:#ff9aa2;font-size:20px;line-height:1;cursor:pointer;
+  }
+  .add-row{
+    margin-top:10px;width:100%;height:44px;border-radius:10px;border:1px dashed var(--line);
+    background:transparent;color:var(--muted);font:inherit;font-size:14px;cursor:pointer;
+  }
+  .add-row:active{background:#122016}
+  .empty-hint{color:var(--muted);font-size:13px;padding:6px 2px}
+
+  .controls{max-width:1040px;margin:18px auto 0;display:flex;flex-direction:column;align-items:center;gap:10px}
+  .rounds{display:flex;align-items:center;gap:10px;color:var(--muted);font-size:14px}
+  .rounds input{
+    width:92px;height:42px;border-radius:10px;border:1px solid var(--line);
+    background:#0d1811;color:var(--text);text-align:center;font:inherit;font-size:16px;
+  }
+  .start{
+    width:100%;max-width:440px;height:52px;border-radius:14px;border:0;
+    background:linear-gradient(180deg,#4ecb5f,#2e8b3e);color:#06120a;
+    font:inherit;font-size:18px;font-weight:800;letter-spacing:1px;cursor:pointer;
+    box-shadow:0 8px 22px rgba(62,180,80,.22);
+  }
+  .start:disabled{opacity:.55;cursor:default;box-shadow:none}
+  .error{color:#ff8a8a;font-size:14px;text-align:center;min-height:0}
+
+  /* 结果框：紧跟在开始按钮下方，向下展开 */
+  .results{
+    position:relative;
+    max-width:1040px; margin:10px auto 0;
+    background:var(--card); border:1px solid var(--line); border-radius:16px;
+    padding:14px 14px 12px;
+  }
+  .results.collapsed .round-list,.results.collapsed .more{display:none}
+  .round-list{max-height:46vh;overflow-y:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch}
+  .toggle-hint{text-align:center;color:var(--muted);font-size:12px;margin:2px 0 0;user-select:none}
+  .close-results{
+    position:absolute; top:8px; right:8px; width:34px; height:34px; border-radius:9px;
+    border:1px solid var(--line); background:var(--card2); color:var(--muted);
+    font-size:18px; line-height:1; cursor:pointer;
+  }
+  .sim{text-align:center;padding:26px 8px;color:var(--gold);font-size:16px;letter-spacing:.5px}
+  .verdict{font-size:26px;font-weight:800;text-align:center;margin:0 0 6px}
+  .verdict.left{color:#dcb6ff}
+  .verdict.right{color:#a8c48c}
+  .verdict.draw{color:var(--gold)}
+  .tally{text-align:center;color:var(--muted);font-size:14px;margin:0 0 12px}
+  .round-list{border-top:1px solid var(--line);padding-top:10px;display:flex;flex-direction:column;gap:6px;font-size:13px}
+  .round-item{display:flex;justify-content:space-between;gap:10px;padding:7px 9px;border-radius:8px;background:#0f1c14}
+  .round-item .w{font-weight:700;white-space:nowrap}
+  .round-item .w.l{color:#dcb6ff}
+  .round-item .w.r{color:#a8c48c}
+  .round-item .w.d{color:var(--gold)}
+  .round-item .m{color:var(--muted);text-align:right}
+  .more{color:var(--muted);text-align:center;font-size:12px;padding-top:4px}
+
+  @media (max-width:760px){
+    main{grid-template-columns:1fr;gap:12px}
+    body{padding:12px 10px calc(24px + env(safe-area-inset-bottom))}
+    h1{font-size:20px}
+    .verdict{font-size:24px}
+    .results{padding:12px 12px 10px}
+    .round-list{max-height:50vh}
+    .round-item{flex-direction:column;align-items:flex-start;gap:2px}
+    .round-item .m{text-align:left;font-size:12px}
+  }
+</style>
+</head>
+<body>
+<header>
+  <h1>僵尸斗蛐蛐</h1>
+  <p>开启一场酣畅淋漓的斗蛐蛐大战！</p>
+</header>
+
+<main>
+  <section class="panel left" aria-labelledby="leftTitle">
+    <div class="panel-head">
+      <h2 id="leftTitle"><span class="dot"></span>魅惑僵尸</h2>
+      <button class="plus" type="button" data-add="left" aria-label="添加一行">＋</button>
+    </div>
+    <div class="rows" id="leftRows"></div>
+    <button class="add-row" type="button" data-add="left">＋ 添加一行</button>
+  </section>
+
+  <section class="panel right" aria-labelledby="rightTitle">
+    <div class="panel-head">
+      <h2 id="rightTitle"><span class="dot"></span>普通僵尸</h2>
+      <button class="plus" type="button" data-add="right" aria-label="添加一行">＋</button>
+    </div>
+    <div class="rows" id="rightRows"></div>
+    <button class="add-row" type="button" data-add="right">＋ 添加一行</button>
+  </section>
+</main>
+
+<div class="controls">
+  <label class="rounds">模拟轮数
+    <input id="rounds" type="number" min="1" max="1000" step="1" value="10" inputmode="numeric">
+  </label>
+  <button id="startBtn" class="start" type="button">开始模拟</button>
+  <div id="error" class="error" hidden></div>
+</div>
+
+<section id="results" class="results collapsed" aria-live="polite">
+  <button id="closeResults" class="close-results" type="button" aria-label="收起结果">×</button>
+  <div id="resultsBody"></div>
+</section>
+
+<script>
+'use strict';
+
+/* ======================================================================
+   数值表（与 zombies.txt 完全一致）
+   列：id 名称 总血量 本体 防具挡啃食 hp浮动% 伤害 间隔 方式 移速
+       phase2血量 phase2移速倍率 投掷小鬼比例 引信min 引信max
+       召唤首延 召唤间隔 召唤上限 召唤类型id 弹药
+   ====================================================================== */
+const ZOMBIE_ROWS = [
+  [ 1,'普通僵尸',   270, 270,1,0, 100,0.5,'chomp',1.00,   0,1.0, 0,   0,  0, 0, 0,0, 0, 0],
+  [ 2,'路障僵尸',   640, 270,1,0, 100,0.5,'chomp',1.00,   0,1.0, 0,   0,  0, 0, 0,0, 0, 0],
+  [ 3,'铁桶僵尸',  1100, 270,1,0, 100,0.5,'chomp',1.00,   0,1.0, 0,   0,  0, 0, 0,0, 0, 0],
+  [ 4,'撑杆僵尸',   500, 500,1,0, 100,0.5,'chomp',2.00,   0,1.0, 0,   0,  0, 0, 0,0, 0, 0],
+  [ 5,'铁门僵尸',  1370, 270,0,0, 100,0.5,'chomp',1.00,   0,1.0, 0,   0,  0, 0, 0,0, 0, 0],
+  [ 6,'橄榄球僵尸',1670, 270,1,0, 100,0.5,'chomp',2.50,   0,1.0, 0,   0,  0, 0, 0,0, 0, 0],
+  [ 7,'读报僵尸',   350, 200,1,0, 100,0.5,'chomp',1.00, 200,2.0, 0,   0,  0, 0, 0,0, 0, 0],
+  [ 8,'舞王僵尸',   500, 500,1,0, 100,0.5,'chomp',1.00,   0,1.0, 0,   0,  0, 5,12,4, 9, 0],
+  [ 9,'伴舞僵尸',   270, 270,1,0, 100,0.5,'chomp',1.00,   0,1.0, 0,   0,  0, 0, 0,0, 0, 0],
+  [10,'小丑僵尸',   490, 490,1,0, 100,0.5,'chomp',1.00,   0,1.0, 0,  10, 30, 0, 0,0, 0, 0],
+  [11,'冰车僵尸',  1350,1350,1,0,   0,0.3,'crush',1.00,   0,1.0, 0,   0,  0, 0, 0,0, 0, 0],
+  [12,'巨人僵尸',  3000,3000,1,0,1800,3.0,'smash',0.50,   0,1.0,0.5,   0,  0, 0, 0,0,14, 0],
+  [13,'红眼巨人',  6000,6000,1,0,1800,3.0,'smash',0.50,   0,1.0,0.5,   0,  0, 0, 0,0,14, 0],
+  [14,'小鬼僵尸',   300, 300,1,0, 100,0.5,'chomp',1.00,   0,1.0, 0,   0,  0, 0, 0,0, 0, 0],
+  [15,'雪人僵尸',   460, 460,1,0, 100,0.5,'chomp',1.00,   0,1.0, 0,   0,  0, 0, 0,0, 0, 0],
+  [16,'梯子僵尸',   850, 500,0,0, 100,0.5,'chomp',1.00,   0,1.0, 0,   0,  0, 0, 0,0, 0, 0],
+  [17,'投石车僵尸', 500, 500,1,0,  75,3.0,'lob',  1.00,   0,1.0, 0,   0,  0, 0, 0,0, 0,20],
+];
+
+const ZOMBIES = ZOMBIE_ROWS.map(r => ({
+  id:r[0], name:r[1], hp:r[2], body:r[3], armorBite:!!r[4], hpVar:r[5],
+  dmg:r[6], interval:r[7], atk:r[8], speed:r[9],
+  p2hp:r[10], p2spd:r[11], impPct:r[12], fuseMin:r[13], fuseMax:r[14],
+  sumFirst:r[15], sumInterval:r[16], sumMax:r[17], sumType:r[18], ammo:r[19],
+}));
+const ZMAP = new Map(ZOMBIES.map(z => [z.id, z]));
+
+/* ======================================================================
+   模拟引擎（对应 C++ 版 runRound）
+   ====================================================================== */
+const CONFIG = {
+  dt: 0.1,
+  normalSpeedCps: 0.2128,
+  speedVarPct: 3,
+  hpVarPct: 0,
+  contactGap: 0.30,  // 两队初始间距 = 贴身距离：开局即扎堆贴身，不再有任何走位
+  spawnSpacing: 0,    // 同队僵尸叠成一栈（原版重叠堆叠），全部一起参战
+  contactRange: 0.30, // 贴身距离：僵尸会一直往前挤到离敌人这么近为止（堆成一栈）
+  eatRange: 0.55,
+  smashRange: 1.0,
+  crushRange: 0.45,
+  lobRange: 99,
+  blastRadius: 1.5,
+  maxTicks: 120000,
+};
+
+function mulberry32(a){
+  return function(){
+    a |= 0; a = (a + 0x6D2B79F5) | 0;
+    let t = Math.imul(a ^ (a >>> 15), 1 | a);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+function runRound(compL, compR, rng){
+  const C = CONFIG;
+  const zs = [];
+  let uid = 0;
+  const urand = (a, b) => a + (b - a) * rng();
+  const shuffle = arr => {
+    for (let i = arr.length - 1; i > 0; i--){
+      const j = Math.floor(rng() * (i + 1));
+      const t = arr[i]; arr[i] = arr[j]; arr[j] = t;
+    }
+  };
+
+  function makeZombie(typeId, team, x, summonerUid){
+    const T = ZMAP.get(typeId);
+    const hv = (T.hpVar > 0 ? T.hpVar : C.hpVarPct) / 100;
+    const hpMul = 1 + (hv > 0 ? urand(-hv, hv) : 0);
+    const bodyMax = T.body * hpMul;
+    const armorMax = (T.hp - T.body) * hpMul;
+    const sv = C.speedVarPct / 100;
+    const z = {
+      typeId, team, uid: ++uid,
+      bodyMax, armorMax,
+      bodyHp: bodyMax, armorHp: armorMax,
+      armorVsBite: T.armorBite,
+      x, dir: team === 0 ? 1 : -1,
+      speed: T.speed * C.normalSpeedCps * (1 + (sv > 0 ? urand(-sv, sv) : 0)),
+      atkType: T.atk,
+      ammo: T.ammo,
+      atkInterval: T.interval,
+      atkRange: T.atk === 'smash' ? C.smashRange
+              : T.atk === 'crush' ? C.crushRange
+              : T.atk === 'lob'   ? C.lobRange
+              :                     C.eatRange,
+      atkCd: T.atk === 'none' ? 1e9 : urand(0, Math.min(0.5, T.interval)),
+      phase2: false,
+      phase2Thr: T.p2hp > 0 ? T.p2hp * ((bodyMax + armorMax) / T.hp) : 0,
+      impThrown: false,
+      fuse: T.fuseMax > 0 ? urand(T.fuseMin, T.fuseMax) : -1,
+      summonTimer: T.sumInterval > 0 ? T.sumFirst : -1,
+      summonerUid: summonerUid || 0,
+      stackNo: -1,        // 栈位：进入前线后按先后分配，越大越"靠上"
+      alive: true,
+    };
+    return z;
+  }
+
+  const expand = comp => {
+    const a = [];
+    for (const { id, n } of comp) for (let i = 0; i < n; i++) a.push(id);
+    return a;
+  };
+  const L = expand(compL), R = expand(compR);
+  for (let i = 0; i < L.length; i++) zs.push(makeZombie(L[i], 0, -C.spawnSpacing * i, 0));
+  for (let i = 0; i < R.length; i++) zs.push(makeZombie(R[i], 1, C.contactGap + C.spawnSpacing * i, 0));
+
+  const totalHp = z => z.bodyHp + z.armorHp;
+  const totalMax = z => z.bodyMax + z.armorMax;
+  const countAlive = team => {
+    let c = 0;
+    for (const z of zs) if (z.alive && z.team === team) c++;
+    return c;
+  };
+  const sumHp = team => {
+    let s = 0;
+    for (const z of zs) if (z.alive && z.team === team) s += totalHp(z);
+    return s;
+  };
+  const nearestEnemyDist = z => {
+    let best = Infinity;
+    for (const e of zs) if (e.alive && e.team !== z.team){
+      const d = Math.abs(e.x - z.x);
+      if (d < best) best = d;
+    }
+    return best;
+  };
+  const stackTarget = (z, range) => {
+    let bestJ = -1, bestStack = -Infinity, bestD = Infinity;
+    for (let j = 0; j < zs.length; j++){
+      const e = zs[j];
+      if (!e.alive || e.team === z.team) continue;
+      const d = Math.abs(e.x - z.x);
+      if (d > range + 1e-9) continue;
+      if (e.stackNo > bestStack ||
+          (e.stackNo === bestStack && d < bestD - 1e-12)){
+        bestStack = e.stackNo; bestD = d; bestJ = j;
+      }
+    }
+    return bestJ;
+  };
+  const nearestEnemy = (z, range) => {
+    let best = Infinity, bestJ = -1;
+    for (let j = 0; j < zs.length; j++){
+      const e = zs[j];
+      if (!e.alive || e.team === z.team) continue;
+      const d = Math.abs(e.x - z.x);
+      if (d > range + 1e-9) continue;
+      if (d < best - 1e-12 || (Math.abs(d - best) <= 1e-12 && (bestJ < 0 || e.uid < zs[bestJ].uid))){
+        best = d; bestJ = j;
+      }
+    }
+    return bestJ;
+  };
+
+  let tick = 0, t = 0, winner = -1, reason = '';
+  const stackNext = [0, 0];   // 每方下一个可用的栈位号
+
+  while (true){
+    const lc = countAlive(0), rc = countAlive(1);
+    if (lc === 0 && rc === 0){ winner = -1; reason = '同归于尽'; break; }
+    if (lc === 0){ winner = 1; reason = '左方全灭'; break; }
+    if (rc === 0){ winner = 0; reason = '右方全灭'; break; }
+    if (tick >= C.maxTicks){
+      const lh = sumHp(0), rh = sumHp(1);
+      winner = lh > rh + 1e-9 ? 0 : (rh > lh + 1e-9 ? 1 : -1);
+      reason = '超时按剩余血量判定';
+      break;
+    }
+
+    /* (1) 小丑引信自爆 */
+    const deto = [];
+    for (let i = 0; i < zs.length; i++){
+      const z = zs[i];
+      if (!z.alive || z.fuse <= 0) continue;
+      z.fuse -= C.dt;
+      if (z.fuse <= 1e-9) deto.push(i);
+    }
+    if (deto.length){
+      const self = new Set(deto);
+      const victims = new Set();
+      for (const idx of deto){
+        const z = zs[idx];
+        for (let j = 0; j < zs.length; j++){
+          const e = zs[j];
+          if (!e.alive || e.team === z.team) continue;
+          if (Math.abs(e.x - z.x) <= C.blastRadius + 1e-9) victims.add(j);
+        }
+      }
+      for (const j of victims){
+        if (!self.has(j) && zs[j].alive){ zs[j].bodyHp = 0; zs[j].armorHp = 0; zs[j].alive = false; }
+      }
+      for (const idx of deto){
+        zs[idx].bodyHp = 0; zs[idx].armorHp = 0; zs[idx].alive = false;
+      }
+    }
+
+    /* (2) 舞王召唤（4 只伴舞生成在同一处） */
+    const newborns = [];
+    for (const z of zs){
+      if (!z.alive || z.summonTimer <= 0) continue;
+      z.summonTimer -= C.dt;
+      if (z.summonTimer > 1e-9) continue;
+      const T = ZMAP.get(z.typeId);
+      let aliveSummons = 0;
+      for (const s of zs) if (s.alive && s.summonerUid === z.uid) aliveSummons++;
+      const need = T.sumMax - aliveSummons;
+      for (let k = 0; k < need; k++) newborns.push(makeZombie(T.sumType, z.team, z.x, z.uid));
+      z.summonTimer = T.sumInterval;
+    }
+    for (const nb of newborns) zs.push(nb);
+
+    /* (3) 巨人半血掷小鬼（放在巨人脚下） */
+    const thrown = [];
+    for (const z of zs){
+      if (!z.alive) continue;
+      const T = ZMAP.get(z.typeId);
+      if (T.impPct <= 0 || z.impThrown) continue;
+      if (totalHp(z) > T.impPct * totalMax(z) + 1e-9) continue;
+      z.impThrown = true;
+      thrown.push(makeZombie(T.sumType, z.team, z.x, 0));
+    }
+    for (const th of thrown) zs.push(th);
+
+    /* (4) 移动：冰车不停车；投石车扔球期间不动；其余进入射程就站定
+       注：用同一时刻的位置快照判断距离，避免"先处理的一方先动"造成左右不对称 */
+    const snapX = zs.map(z => z.x);
+    for (let i = 0; i < zs.length; i++){
+      const z = zs[i];
+      if (!z.alive) continue;
+      if (z.atkType === 'crush'){ z.x += z.dir * z.speed * C.dt; continue; }
+      if (z.atkType === 'lob' && z.ammo > 0) continue;
+      let best = Infinity;
+      for (let j = 0; j < zs.length; j++){
+        const e = zs[j];
+        if (!e.alive || e.team === z.team) continue;
+        const d = Math.abs(snapX[j] - snapX[i]);
+        if (d < best) best = d;
+      }
+      if (best <= C.contactRange + 1e-9) continue;   // 贴到敌人身边就不再前进（堆成一栈）
+      z.x += z.dir * z.speed * C.dt;
+    }
+
+    /* (4.5) 栈位：进入前线的僵尸按先后分配栈位号（参考原版僵尸堆叠）
+       攻击时优先打"栈位最高"的敌人，把随机集火变成确定的攻击顺序 */
+    for (const z of zs){
+      if (!z.alive || z.stackNo >= 0) continue;
+      if (nearestEnemy(z, z.atkRange) >= 0) z.stackNo = stackNext[z.team]++;
+    }
+
+    /* (5) 攻击：每 tick 随机顺序依次出手 */
+    const attackers = [];
+    for (let i = 0; i < zs.length; i++){
+      const z = zs[i];
+      if (!z.alive || z.atkType === 'none' || z.atkCd > 1e-9) continue;
+      attackers.push(i);
+    }
+    shuffle(attackers);
+    for (const i of attackers){
+      const z = zs[i];
+      if (!z.alive || z.atkCd > 1e-9) continue;
+      // 近战按栈位优先选目标；投石车（远程抛掷）仍打最近的
+      // 近战按栈位优先选目标；投石车/冰车这类按距离选最近
+      const j = (z.atkType === 'lob' || z.atkType === 'crush') ? nearestEnemy(z, z.atkRange) : stackTarget(z, z.atkRange);
+      if (j < 0) continue;
+      const T = ZMAP.get(z.typeId);
+      z.atkCd = z.atkInterval;
+      const tgt = zs[j];
+
+      if (z.atkType === 'crush'){
+        tgt.bodyHp = 0; tgt.armorHp = 0; tgt.alive = false;
+        continue;
+      }
+
+      let d = T.dmg;
+      const biteLike = (z.atkType === 'chomp' || z.atkType === 'lob');
+      if (!(biteLike && !tgt.armorVsBite) && tgt.armorHp > 0){
+        const a = Math.min(tgt.armorHp, d);
+        tgt.armorHp -= a;
+        d -= a;
+      }
+      if (d > 0) tgt.bodyHp -= d;
+      if (tgt.bodyHp <= 1e-9){ tgt.bodyHp = 0; tgt.alive = false; }
+
+      if (z.atkType === 'lob'){
+        z.ammo -= 1;
+        if (z.ammo <= 0){
+          z.ammo = 0;
+          z.atkType = 'crush';
+          z.atkRange = C.crushRange;
+          z.atkInterval = 0.3;
+          z.atkCd = 0;
+        }
+      }
+    }
+
+    /* (6) 冷却 / 读报二阶段 */
+    for (const z of zs) if (z.alive) z.atkCd -= C.dt;
+    for (const z of zs){
+      if (!z.alive || z.phase2) continue;
+      const T = ZMAP.get(z.typeId);
+      if (T.p2hp > 0 && totalHp(z) <= z.phase2Thr + 1e-9){
+        z.phase2 = true;
+        z.speed *= T.p2spd;
+      }
+    }
+
+    tick++; t += C.dt;
+  }
+
+  return {
+    winner, time: t, reason,
+    leftAlive: countAlive(0), rightAlive: countAlive(1),
+    leftHp: sumHp(0), rightHp: sumHp(1),
+  };
+}
+
+/* ======================================================================
+   UI
+   ====================================================================== */
+const MAX_PER_ROW = 1000;
+const MAX_PER_SIDE = 1000;
+const MAX_ROUNDS = 1000;
+const MAX_LIST = 300;
+
+const leftRowsEl = document.getElementById('leftRows');
+const rightRowsEl = document.getElementById('rightRows');
+const roundsEl = document.getElementById('rounds');
+const startBtn = document.getElementById('startBtn');
+const errorEl = document.getElementById('error');
+const resultsEl = document.getElementById('results');
+const resultsBody = document.getElementById('resultsBody');
+const closeResultsBtn = document.getElementById('closeResults');
+
+function showResultsPanel(){ resultsEl.hidden = false; }
+function hideResultsPanel(){ resultsEl.hidden = true; }
+function renderSimulating(done, total){
+  showResultsPanel();
+  resultsEl.classList.add('collapsed');
+  resultsEl.classList.remove('expanded');
+  resultsBody.innerHTML = '<div class="sim">模拟中… ' + done + '/' + total + '</div>';
+}
+function renderIdle(){
+  resultsBody.innerHTML = '<div class="sim idle">结果会显示在这里</div>';
+  resultsEl.classList.add('collapsed');
+  resultsEl.classList.remove('expanded');
+}
+function setPanelExpanded(expanded){
+  resultsEl.classList.toggle('collapsed', !expanded);
+  resultsEl.classList.toggle('expanded', expanded);
+  const hint = resultsBody.querySelector('.toggle-hint');
+  if (hint) hint.textContent = expanded ? '点击收起详情 ▴' : '点击展开逐轮详情 ▾';
+  resultsEl.scrollTop = 0;
+}
+resultsEl.addEventListener('click', (e) => {
+  if (!e.target.closest) return;
+  if (e.target.closest('.close-results')) return;
+  // 只有点"胜负/比分/展开提示"才切换，点列表本身不影响
+  if (!e.target.closest('.verdict') && !e.target.closest('.tally') && !e.target.closest('.toggle-hint')) return;
+  if (!resultsBody.querySelector('.round-list')) return;   // 模拟中/空闲不响应
+  setPanelExpanded(resultsEl.classList.contains('collapsed'));
+});
+closeResultsBtn.addEventListener('click', () => { hideResultsPanel(); });
+/* 结果框常驻底部 */
+showResultsPanel();
+renderIdle();
+
+function addRow(side, typeId = 1, count = 1){
+  const wrap = side === 'left' ? leftRowsEl : rightRowsEl;
+  const row = document.createElement('div');
+  row.className = 'row';
+
+  const sel = document.createElement('select');
+  sel.setAttribute('aria-label', '僵尸种类');
+  for (const z of ZOMBIES){
+    const opt = document.createElement('option');
+    opt.value = String(z.id);
+    opt.textContent = z.id + '. ' + z.name;
+    sel.appendChild(opt);
+  }
+  sel.value = String(typeId);
+
+  const num = document.createElement('input');
+  num.type = 'number';
+  num.min = '1';
+  num.max = String(MAX_PER_ROW);
+  num.step = '1';
+  num.inputMode = 'numeric';
+  num.value = String(count);
+  num.setAttribute('aria-label', '数量');
+
+  const del = document.createElement('button');
+  del.type = 'button';
+  del.className = 'del';
+  del.textContent = '×';
+  del.setAttribute('aria-label', '删除这一行');
+  del.addEventListener('click', () => {
+    row.remove();
+    refreshEmptyHint();
+  });
+
+  row.append(sel, num, del);
+  wrap.appendChild(row);
+  refreshEmptyHint();
+}
+
+function refreshEmptyHint(){
+  for (const [el, side] of [[leftRowsEl,'left'],[rightRowsEl,'right']]){
+    let hint = el.parentElement.querySelector('.empty-hint');
+    const empty = el.children.length === 0;
+    if (empty && !hint){
+      hint = document.createElement('div');
+      hint.className = 'empty-hint';
+      hint.textContent = '还没有僵尸，点右上角 ＋ 添加一行';
+      el.parentElement.insertBefore(hint, el.nextSibling);
+    } else if (!empty && hint){
+      hint.remove();
+    }
+  }
+}
+
+document.querySelectorAll('[data-add]').forEach(btn => {
+  btn.addEventListener('click', () => addRow(btn.dataset.add));
+});
+
+function readComp(el, sideName){
+  const comp = [];
+  let total = 0;
+  for (const row of el.querySelectorAll('.row')){
+    const id = Number(row.querySelector('select').value);
+    let n = Math.floor(Number(row.querySelector('input').value));
+    if (!isFinite(n) || n <= 0) continue;
+    if (n > MAX_PER_ROW) n = MAX_PER_ROW;
+    comp.push({ id, n });
+    total += n;
+  }
+  if (total === 0) throw new Error(sideName + '至少需要 1 只僵尸');
+  if (total > MAX_PER_SIDE){
+    throw new Error(sideName + '最多 ' + MAX_PER_SIDE + ' 只（当前 ' + total + ' 只）');
+  }
+  return comp;
+}
+
+const yieldUI = () => new Promise(res => setTimeout(res, 0));
+
+function fmtNum(v, digits){
+  if (!isFinite(v)) return '-';
+  return v.toFixed(digits);
+}
+
+function renderResults(summary){
+  showResultsPanel();
+  const { rounds, lw, rw, dr, list, elapsed } = summary;
+  const verdict = lw > rw ? '左边赢' : rw > lw ? '右边赢' : '平局';
+  const vcls = lw > rw ? 'left' : rw > lw ? 'right' : 'draw';
+
+  const parts = [];
+  parts.push('<h2 class="verdict ' + vcls + '">' + verdict + '</h2>');
+  parts.push('<p class="tally">共 ' + rounds + ' 轮：左边赢 ' + lw + ' 轮 · 右边赢 ' + rw +
+             ' 轮 · 平局 ' + dr + ' 轮（耗时 ' + fmtNum(elapsed, 2) + ' s）</p>');
+  parts.push('<div class="toggle-hint">点击展开逐轮详情 ▾</div>');
+  parts.push('<div class="round-list">');
+  const show = Math.min(list.length, MAX_LIST);
+  for (let i = 0; i < show; i++){
+    const r = list[i];
+    const w = r.winner === 0 ? '左边赢' : r.winner === 1 ? '右边赢' : '平局';
+    const c = r.winner === 0 ? 'l' : r.winner === 1 ? 'r' : 'd';
+    parts.push(
+      '<div class="round-item">' +
+        '<span class="w ' + c + '">第 ' + (i + 1) + ' 轮 · ' + w + '</span>' +
+        '<span class="m">' + fmtNum(r.time, 1) + 's · 左 ' + r.leftAlive + ' 只/' +
+          Math.round(r.leftHp) + ' HP · 右 ' + r.rightAlive + ' 只/' + Math.round(r.rightHp) + ' HP</span>' +
+      '</div>'
+    );
+  }
+  parts.push('</div>');
+  if (list.length > show){
+    parts.push('<div class="more">仅显示前 ' + show + ' 轮</div>');
+  }
+  resultsBody.innerHTML = parts.join('');
+  setPanelExpanded(false);
+}
+
+async function startSim(){
+  errorEl.hidden = true;
+  let compL, compR, rounds;
+  try {
+    rounds = Math.floor(Number(roundsEl.value));
+    if (!isFinite(rounds) || rounds < 1) throw new Error('模拟轮数需为 ≥1 的整数');
+    if (rounds > MAX_ROUNDS) throw new Error('模拟轮数最多 ' + MAX_ROUNDS);
+    roundsEl.value = String(rounds);
+    compL = readComp(leftRowsEl, '左方');
+    compR = readComp(rightRowsEl, '右方');
+  } catch (e){
+    errorEl.textContent = e.message;
+    errorEl.hidden = false;
+    return;
+  }
+
+  startBtn.disabled = true;
+  renderSimulating(0, rounds);
+
+  const seed = (Date.now() ^ Math.floor(Math.random() * 0xffffffff)) >>> 0;
+  const rng = mulberry32(seed);
+  const t0 = performance.now();
+  let lw = 0, rw = 0, dr = 0;
+  const list = [];
+
+  await yieldUI();
+
+  for (let r = 1; r <= rounds; r++){
+    const res = runRound(compL, compR, rng);
+    list.push(res);
+    if (res.winner === 0) lw++;
+    else if (res.winner === 1) rw++;
+    else dr++;
+
+    if (r % 20 === 0 || r === rounds){
+      renderSimulating(r, rounds);
+      await yieldUI();
+    }
+  }
+
+  const elapsed = (performance.now() - t0) / 1000;
+  startBtn.disabled = false;
+  renderResults({ rounds, lw, rw, dr, list, elapsed });
+}
+
+startBtn.addEventListener('click', startSim);
+roundsEl.addEventListener('keydown', e => { if (e.key === 'Enter') startSim(); });
+
+/* 初始：每方一行普通僵尸 ×1 */
+addRow('left', 1, 1);
+addRow('right', 1, 1);
+</script>
+</body>
+</html>
